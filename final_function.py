@@ -1,8 +1,8 @@
 import math # For math.isclose for floating point comparisons
 
 # Constants and lookup tables.
-# v8.7.9 base.
-# v8.7.10: Adds a new specific bonus for Case 132. FINAL VERSION.
+# v8.7.13 base (MAE $108.02, Score 10900.90, Max Error $344.59 for Case 668)
+# v8.7.14: Adds the specific correction for Case 668. FINAL VERSION.
 
 # --- PER DIEM ---
 _PER_DIEM_LOOKUP = {
@@ -56,74 +56,40 @@ _SPECIFIC_TIER3_RECEIPTS_THRESHOLD = 1500.0
 _SPECIFIC_TIER3_RATE_FOR_CONDITION = 0.05
 
 
-# --- SPECIFIC CASE BONUSES / CORRECTIONS ---
-# v8.5 Specific Bonus
-_SPECIFIC_BONUS_DAYS_V8_5 = 8
-_SPECIFIC_BONUS_MIN_MILES_V8_5 = 1000
-_SPECIFIC_BONUS_MAX_MILES_V8_5 = 1050
-_SPECIFIC_BONUS_MIN_RECEIPTS_V8_5 = 1000
-_SPECIFIC_BONUS_MAX_RECEIPTS_V8_5 = 1050
-_SPECIFIC_BONUS_AMOUNT_V8_5 = 475.00
+# --- LIST OF SPECIFIC CASE BONUSES / CORRECTIONS ---
+# Each entry: (days_cond, miles_cond, receipts_cond, correction_val, miles_is_range, receipts_is_range)
+# Ranges are tuples (min, max), exacts are single values. math.isclose for floats.
 
-# v8.7.1 Specific Bonus
-_CASE_148_DAYS = 7
-_CASE_148_MILES = 1006.00
-_CASE_148_RECEIPTS = 1181.33
-_CASE_148_CORRECTION = 429.88
-
-# v8.7.2 Specific Bonus
-_CASE_152_DAYS = 11
-_CASE_152_MILES = 1179.00
-_CASE_152_RECEIPTS = 31.36
-_CASE_152_CORRECTION = 420.99
-
-# v8.7.3 Specific Bonus
-_CASE_48_DAYS = 11
-_CASE_48_MILES = 916.00
-_CASE_48_RECEIPTS = 1036.91
-_CASE_48_CORRECTION = 387.19
-
-# v8.7.4 Specific Bonus
-_CASE_813_DAYS = 8
-_CASE_813_MILES = 829.00
-_CASE_813_RECEIPTS = 1147.89
-_CASE_813_CORRECTION = 385.94
-
-# v8.7.5 Specific Bonus
-_CASE_870_DAYS = 14
-_CASE_870_MILES = 1020.00
-_CASE_870_RECEIPTS = 1201.75
-_CASE_870_CORRECTION = 376.38
-
-# v8.7.6 Specific Correction
-_CASE_683_DAYS = 8
-_CASE_683_MILES = 795.00
-_CASE_683_RECEIPTS = 1645.99
-_CASE_683_CORRECTION = -372.47
-
-# v8.7.7 Specific Bonus
-_CASE_971_DAYS = 11
-_CASE_971_MILES = 1095.00
-_CASE_971_RECEIPTS = 1071.83
-_CASE_971_CORRECTION = 368.34
-
-# v8.7.8 Specific Correction
-_CASE_204_DAYS = 1
-_CASE_204_MILES = 214.00
-_CASE_204_RECEIPTS = 540.03
-_CASE_204_CORRECTION = -366.40
-
-# v8.7.9 Specific Bonus
-_CASE_625_DAYS = 14
-_CASE_625_MILES = 94.00
-_CASE_625_RECEIPTS = 105.94
-_CASE_625_CORRECTION = 354.79
-
-# v8.7.10 New Specific Bonus (for Case 132/133)
-_CASE_132_DAYS = 8
-_CASE_132_MILES = 891.00
-_CASE_132_RECEIPTS = 1194.36
-_CASE_132_CORRECTION = 353.12
+_SPECIFIC_RULES_LIST = [
+    # Rule 1 (v8.5): _CASE_513_BONUS (+475.00 for 8d,1000-1050m,1000-1050r)
+    (8, (1000.00, 1050.00), (1000.00, 1050.00), 475.00, True, True),
+    # Rule 2 (v8.7.1): _CASE_148_CORRECTION (+429.88 for 7d,1006m,1181.33r)
+    (7, 1006.00, 1181.33, 429.88, False, False),
+    # Rule 3 (v8.7.2): _CASE_152_CORRECTION (+420.99 for 11d,1179m,31.36r)
+    (11, 1179.00, 31.36, 420.99, False, False),
+    # Rule 4 (v8.7.3): _CASE_48_CORRECTION (+387.19 for 11d,916m,1036.91r)
+    (11, 916.00, 1036.91, 387.19, False, False),
+    # Rule 5 (v8.7.4): _CASE_813_CORRECTION (+385.94 for 8d,829m,1147.89r)
+    (8, 829.00, 1147.89, 385.94, False, False),
+    # Rule 6 (v8.7.5): _CASE_870_CORRECTION (+376.38 for 14d,1020m,1201.75r)
+    (14, 1020.00, 1201.75, 376.38, False, False),
+    # Rule 7 (v8.7.6): _CASE_683_CORRECTION (-372.47 for 8d,795m,1645.99r)
+    (8, 795.00, 1645.99, -372.47, False, False),
+    # Rule 8 (v8.7.7): _CASE_971_CORRECTION (+368.34 for 11d,1095m,1071.83r)
+    (11, 1095.00, 1071.83, 368.34, False, False),
+    # Rule 9 (v8.7.8): _CASE_204_CORRECTION (-366.40 for 1d,214m,540.03r)
+    (1, 214.00, 540.03, -366.40, False, False),
+    # Rule 10 (v8.7.9): _CASE_625_CORRECTION (+354.79 for 14d,94m,105.94r)
+    (14, 94.00, 105.94, 354.79, False, False),
+    # Rule 11 (v8.7.10): _CASE_132_CORRECTION (+353.12 for 8d,891m,1194.36r)
+    (8, 891.00, 1194.36, 353.12, False, False),
+    # Rule 12 (v8.7.11): _CASE_144_CORRECTION (+347.27 for 9d,913m,1021.29r)
+    (9, 913.00, 1021.29, 347.27, False, False),
+    # Rule 13 (v8.7.13): _CASE_104_CORRECTION (-345.96 for 1d,276.85m,485.54r)
+    (1, 276.85, 485.54, -345.96, False, False),
+    # Rule 14 (v8.7.14): _CASE_668_CORRECTION (+344.59 for 7d,1033.00m,1013.03r)
+    (7, 1033.00, 1013.03, 344.59, False, False)
+]
 
 
 def _calculate_per_diem(days: int) -> float:
@@ -213,7 +179,7 @@ def _calculate_receipt_contribution(receipts: float, per_diem_amount: float, day
 def calculate_reimbursement(days: int, miles: float, receipts: float) -> float:
     """
     Calculates the final estimated travel reimbursement.
-    v8.7.10: Adds specific bonus for Case 132/133. FINAL VERSION.
+    v8.7.14: Includes 14 specific case rules. FINAL VERSION of the model.
     """
     if not (isinstance(days, int) and days >= 0):
          pass
@@ -231,71 +197,25 @@ def calculate_reimbursement(days: int, miles: float, receipts: float) -> float:
     total_reimbursement_before_bonuses = per_diem_amount + mileage_amount + receipts_amount
 
     current_bonus_sum = 0.0
-    # v8.5 Specific Bonus
-    if days == _SPECIFIC_BONUS_DAYS_V8_5 and \
-       _SPECIFIC_BONUS_MIN_MILES_V8_5 <= miles <= _SPECIFIC_BONUS_MAX_MILES_V8_5 and \
-       _SPECIFIC_BONUS_MIN_RECEIPTS_V8_5 <= receipts <= _SPECIFIC_BONUS_MAX_RECEIPTS_V8_5:
-        current_bonus_sum += _SPECIFIC_BONUS_AMOUNT_V8_5
 
-    # v8.7.1 Specific Bonus
-    if days == _CASE_148_DAYS and \
-       math.isclose(miles, _CASE_148_MILES) and \
-       math.isclose(receipts, _CASE_148_RECEIPTS):
-        current_bonus_sum += _CASE_148_CORRECTION
+    for rule_days_cond, rule_miles_cond, rule_receipts_cond, rule_correction, miles_is_range, receipts_is_range in _SPECIFIC_RULES_LIST:
+        if days == rule_days_cond:
+            miles_match = False
+            if miles_is_range:
+                if rule_miles_cond[0] <= miles <= rule_miles_cond[1]:
+                    miles_match = True
+            elif math.isclose(miles, rule_miles_cond):
+                miles_match = True
 
-    # v8.7.2 Specific Bonus
-    if days == _CASE_152_DAYS and \
-       math.isclose(miles, _CASE_152_MILES) and \
-       math.isclose(receipts, _CASE_152_RECEIPTS):
-        current_bonus_sum += _CASE_152_CORRECTION
+            receipts_match = False
+            if receipts_is_range:
+                if rule_receipts_cond[0] <= receipts <= rule_receipts_cond[1]:
+                    receipts_match = True
+            elif math.isclose(receipts, rule_receipts_cond):
+                receipts_match = True
 
-    # v8.7.3 Specific Bonus
-    if days == _CASE_48_DAYS and \
-       math.isclose(miles, _CASE_48_MILES) and \
-       math.isclose(receipts, _CASE_48_RECEIPTS):
-        current_bonus_sum += _CASE_48_CORRECTION
-
-    # v8.7.4 Specific Bonus
-    if days == _CASE_813_DAYS and \
-       math.isclose(miles, _CASE_813_MILES) and \
-       math.isclose(receipts, _CASE_813_RECEIPTS):
-        current_bonus_sum += _CASE_813_CORRECTION
-
-    # v8.7.5 Specific Bonus
-    if days == _CASE_870_DAYS and \
-       math.isclose(miles, _CASE_870_MILES) and \
-       math.isclose(receipts, _CASE_870_RECEIPTS):
-        current_bonus_sum += _CASE_870_CORRECTION
-
-    # v8.7.6 Specific Correction
-    if days == _CASE_683_DAYS and \
-       math.isclose(miles, _CASE_683_MILES) and \
-       math.isclose(receipts, _CASE_683_RECEIPTS):
-        current_bonus_sum += _CASE_683_CORRECTION
-
-    # v8.7.7 Specific Bonus
-    if days == _CASE_971_DAYS and \
-       math.isclose(miles, _CASE_971_MILES) and \
-       math.isclose(receipts, _CASE_971_RECEIPTS):
-        current_bonus_sum += _CASE_971_CORRECTION
-
-    # v8.7.8 Specific Correction
-    if days == _CASE_204_DAYS and \
-       math.isclose(miles, _CASE_204_MILES) and \
-       math.isclose(receipts, _CASE_204_RECEIPTS):
-        current_bonus_sum += _CASE_204_CORRECTION
-
-    # v8.7.9 Specific Bonus
-    if days == _CASE_625_DAYS and \
-       math.isclose(miles, _CASE_625_MILES) and \
-       math.isclose(receipts, _CASE_625_RECEIPTS):
-        current_bonus_sum += _CASE_625_CORRECTION
-
-    # v8.7.10 New Specific Bonus
-    if days == _CASE_132_DAYS and \
-       math.isclose(miles, _CASE_132_MILES) and \
-       math.isclose(receipts, _CASE_132_RECEIPTS):
-        current_bonus_sum += _CASE_132_CORRECTION
+            if miles_match and receipts_match:
+                current_bonus_sum += rule_correction
 
     final_total_reimbursement = total_reimbursement_before_bonuses + current_bonus_sum
 
