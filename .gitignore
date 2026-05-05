@@ -1,0 +1,27 @@
+
+# Beads / Dolt files (added by bd init)
+.beads/
+.dolt/
+*.db
+.beads-credential-key
+
+# Local agent/editor integration
+.claude/
+AGENTS.md
+CLAUDE.md
+
+# Python local artifacts
+.venv/
+__pycache__/
+*.pyc
+
+# Local modeling experiments
+bench_*.py
+fit*.py
+train*.py
+gen_*.py
+predict.py
+params.json
+models.pkl
+private_predictions.tsv
+*.prior
